@@ -14,6 +14,9 @@ export class Board {
     this.scene = scene;
     this.boardGroup = scene.add.group();
     
+    // 9x9 の盤面データ管理配列（空マスは null）
+    this.gridData = Array.from({ length: BOARD_COLS }, () => Array(BOARD_ROWS).fill(null));
+    
     // 盤面の描画を実行
     this.createBoardVisuals();
   }
@@ -23,7 +26,7 @@ export class Board {
     const bg = this.scene.add.rectangle(
       BOARD_ORIGIN_X + BOARD_WIDTH / 2,
       BOARD_ORIGIN_Y + BOARD_HEIGHT / 2,
-      BOARD_WIDTH + 20, // 外枠を少し余分に取る
+      BOARD_WIDTH + 20,
       BOARD_HEIGHT + 20,
       COLORS.BOARD_BG
     );
@@ -34,14 +37,12 @@ export class Board {
     const graphics = this.scene.add.graphics();
     graphics.lineStyle(2, COLORS.BOARD_LINE, 1);
 
-    // 縦線（9マス分の10本）
     for (let col = 0; col <= BOARD_COLS; col++) {
       const x = BOARD_ORIGIN_X + col * CELL_SIZE;
       graphics.moveTo(x, BOARD_ORIGIN_Y);
       graphics.lineTo(x, BOARD_ORIGIN_Y + BOARD_HEIGHT);
     }
 
-    // 横線（9マス分の10本）
     for (let row = 0; row <= BOARD_ROWS; row++) {
       const y = BOARD_ORIGIN_Y + row * CELL_SIZE;
       graphics.moveTo(BOARD_ORIGIN_X, y);
@@ -51,7 +52,6 @@ export class Board {
     this.boardGroup.add(graphics);
 
     // 3. 星（4つの目印の点）を描画
-    // 将棋盤の星は一般的に (3,3), (6,3), (3,6), (6,6) の交点に配置される
     const starPoints = [
       { x: 3, y: 3 }, { x: 6, y: 3 },
       { x: 3, y: 6 }, { x: 6, y: 6 }
@@ -66,18 +66,27 @@ export class Board {
   }
 
   /**
-   * グリッド座標 (0~8, 0~8) を画面上のピクセル座標（マスの中心点）に変換する
+   * 指定したグリッド座標に駒を配置し、データ配列に登録する
    */
+  placePiece(piece, gridX, gridY) {
+    this.gridData[gridX][gridY] = piece;
+    piece.setPosition(gridX, gridY);
+  }
+
+  /**
+   * 指定したグリッド座標にある駒を取得する（空なら null）
+   */
+  getPieceAt(gridX, gridY) {
+    if (!Board.isWithinBounds(gridX, gridY)) return null;
+    return this.gridData[gridX][gridY];
+  }
+
   gridToWorld(gridX, gridY) {
     const worldX = BOARD_ORIGIN_X + gridX * CELL_SIZE + CELL_SIZE / 2;
     const worldY = BOARD_ORIGIN_Y + gridY * CELL_SIZE + CELL_SIZE / 2;
     return { worldX, worldY };
   }
 
-  /**
-   * 画面上のピクセル座標をグリッド座標 (0~8, 0~8) に変換する
-   * 盤外をクリックした場合は null を返す
-   */
   worldToGrid(worldX, worldY) {
     if (
       worldX < BOARD_ORIGIN_X || 
@@ -92,9 +101,6 @@ export class Board {
     return { gridX, gridY };
   }
 
-  /**
-   * 指定した座標が将棋盤の範囲内 (0~8) であるかを判定する静的メソッド
-   */
   static isWithinBounds(gridX, gridY) {
     return gridX >= 0 && gridX < BOARD_COLS && gridY >= 0 && gridY < BOARD_ROWS;
   }
