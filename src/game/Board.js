@@ -13,16 +13,13 @@ export class Board {
   constructor(scene) {
     this.scene = scene;
     this.boardGroup = scene.add.group();
+    this.highlightGroup = scene.add.group(); // ハイライト用のグループ
     
-    // 9x9 の盤面データ管理配列（空マスは null）
     this.gridData = Array.from({ length: BOARD_COLS }, () => Array(BOARD_ROWS).fill(null));
-    
-    // 盤面の描画を実行
     this.createBoardVisuals();
   }
 
   createBoardVisuals() {
-    // 1. 将棋盤のベース背景（木目調の土台）
     const bg = this.scene.add.rectangle(
       BOARD_ORIGIN_X + BOARD_WIDTH / 2,
       BOARD_ORIGIN_Y + BOARD_HEIGHT / 2,
@@ -33,7 +30,6 @@ export class Board {
     bg.setStrokeStyle(3, COLORS.BOARD_LINE);
     this.boardGroup.add(bg);
 
-    // 2. マス目の線（格子状）を描画
     const graphics = this.scene.add.graphics();
     graphics.lineStyle(2, COLORS.BOARD_LINE, 1);
 
@@ -51,7 +47,6 @@ export class Board {
     graphics.strokePath();
     this.boardGroup.add(graphics);
 
-    // 3. 星（4つの目印の点）を描画
     const starPoints = [
       { x: 3, y: 3 }, { x: 6, y: 3 },
       { x: 3, y: 6 }, { x: 6, y: 6 }
@@ -66,16 +61,60 @@ export class Board {
   }
 
   /**
-   * 指定したグリッド座標に駒を配置し、データ配列に登録する
+   * 合法手リストを緑色の半透明円でハイライト表示する
    */
+  showHighlights(legalMoves, onSelectCallback) {
+    this.clearHighlights();
+
+    for (const move of legalMoves) {
+      const { worldX, worldY } = this.gridToWorld(move.x, move.y);
+      
+      // 半透明の緑色の丸を生成
+      const highlight = this.scene.add.circle(worldX, worldY, CELL_SIZE * 0.35, COLORS.HIGHLIGHT_MOVE, 0.6);
+      highlight.setInteractive({ useHandCursor: true });
+      
+      // クリックされたらコールバックを実行
+      highlight.on('pointerdown', () => {
+        onSelectCallback(move.x, move.y);
+      });
+
+      this.highlightGroup.add(highlight);
+    }
+  }
+
+  /**
+   * 表示中のハイライトを全て消去する
+   */
+  clearHighlights() {
+    this.highlightGroup.clear(true, true);
+  }
+
+  /**
+   * 駒を移動させる（敵の駒があれば取る処理も含む）
+   */
+  movePiece(fromX, fromY, toX, toY) {
+    const piece = this.getPieceAt(fromX, fromY);
+    if (!piece) return null;
+
+    // 移動先に敵の駒があれば盤面から消す（後々ここで持ち駒台に追加する処理を入れる）
+    const targetPiece = this.getPieceAt(toX, toY);
+    if (targetPiece) {
+      targetPiece.container.destroy();
+    }
+
+    // 元の場所を空にする
+    this.gridData[fromX][fromY] = null;
+    // 新しい場所に駒を配置する
+    this.placePiece(piece, toX, toY);
+
+    return targetPiece;
+  }
+
   placePiece(piece, gridX, gridY) {
     this.gridData[gridX][gridY] = piece;
     piece.setPosition(gridX, gridY);
   }
 
-  /**
-   * 指定したグリッド座標にある駒を取得する（空なら null）
-   */
   getPieceAt(gridX, gridY) {
     if (!Board.isWithinBounds(gridX, gridY)) return null;
     return this.gridData[gridX][gridY];
